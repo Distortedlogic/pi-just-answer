@@ -4,7 +4,7 @@ import { matchesKey } from "@earendil-works/pi-tui";
 const MODES = ["exec", "just-answer"] as const;
 type Mode = (typeof MODES)[number];
 
-const STATUS_KEY = "just-answer-mode";
+const WIDGET_KEY = "just-answer-mode";
 const JUST_ANSWER_SUFFIX = " no tool calls, just answer";
 
 export default function (pi: ExtensionAPI) {
@@ -14,7 +14,8 @@ export default function (pi: ExtensionAPI) {
 	const getMode = (): Mode => MODES[modeIndex];
 
 	const showMode = (ctx: ExtensionContext): void => {
-		ctx.ui.setStatus(STATUS_KEY, getMode() === "just-answer" ? "just-answer" : undefined);
+		const content = getMode() === "just-answer" ? ["just-answer"] : undefined;
+		ctx.ui.setWidget(WIDGET_KEY, content, { placement: "belowEditor" });
 	};
 
 	pi.on("session_start", (_event, ctx) => {
@@ -35,7 +36,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_shutdown", (_event, ctx) => {
 		removeTerminalInputListener?.();
 		removeTerminalInputListener = undefined;
-		ctx.ui.setStatus(STATUS_KEY, undefined);
+		ctx.ui.setWidget(WIDGET_KEY, undefined);
 	});
 
 	pi.on("input", (event) => {
