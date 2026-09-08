@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { matchesKey } from "@earendil-works/pi-tui";
+import { isKeyRelease, isKeyRepeat, matchesKey } from "@earendil-works/pi-tui";
 
 const MODES = ["exec", "just-answer"] as const;
 type Mode = (typeof MODES)[number];
@@ -26,6 +26,7 @@ export default function (pi: ExtensionAPI) {
 
 		removeTerminalInputListener = ctx.ui.onTerminalInput((data) => {
 			if (!matchesKey(data, "shift+tab")) return undefined;
+			if (isKeyRepeat(data) || isKeyRelease(data)) return { consume: true };
 
 			modeIndex = (modeIndex + 1) % MODES.length;
 			showMode(ctx);
