@@ -3,7 +3,7 @@
 A pi extension with two Shift+Tab modes:
 
 - `exec`: normal pi behavior
-- `just-answer`: appends ` no tool calls, just answer` to each user message
+- `just-answer`: appends ` --- no tool calls, just answer` to each user message
 
 When `just-answer` is active, persistent text below the editor shows `just-answer`. Shift+Tab rotates to the next mode and replaces pi's normal Shift+Tab action.
 

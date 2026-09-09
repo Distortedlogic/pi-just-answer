@@ -5,7 +5,7 @@ const MODES = ["exec", "just-answer"] as const;
 type Mode = (typeof MODES)[number];
 
 const WIDGET_KEY = "just-answer-mode";
-const JUST_ANSWER_SUFFIX = " no tool calls, just answer";
+const JUST_ANSWER_SUFFIX = " --- no tool calls, just answer";
 
 export default function (pi: ExtensionAPI) {
 	let modeIndex = 0;
