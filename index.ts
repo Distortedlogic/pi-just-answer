@@ -41,7 +41,11 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("input", (event) => {
-		if (getMode() !== "just-answer" || event.source === "extension") {
+		if (
+			getMode() !== "just-answer" ||
+			event.source === "extension" ||
+			event.text.endsWith(JUST_ANSWER_SUFFIX)
+		) {
 			return { action: "continue" };
 		}
 
