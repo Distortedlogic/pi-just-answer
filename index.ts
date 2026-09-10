@@ -1,32 +1,57 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, isKeyRepeat, matchesKey } from "@earendil-works/pi-tui";
+import { parse } from "yaml";
 
-const MODES = ["exec", "just-answer", "targeted-edits", "create-tasklist"] as const;
-type Mode = (typeof MODES)[number];
-
+const MODES_FILE = "AGENT_MODES.yml";
+const SEPARATOR = " --- ";
 const WIDGET_KEY = "just-answer-mode";
-const MODE_SUFFIXES: Record<Mode, string> = {
-	exec: "",
-	"just-answer": " --- no tool calls, just answer",
-	"targeted-edits":
-		" --- do the targeted edit calls to execute this task. u may use the write tool if u need a new file, or the read tool if an edit fails on needed a new read, or bash to commit at the end. then halt.",
-	"create-tasklist":
-		" --- now group this into work units and give me a technical impl plan for this in the format of a properly ordered task list, n dump the task list into a {generate_full_concept_coverage_minimal_length_prefix}_TASKLIST.md in cwd",
-};
 
 export default function (pi: ExtensionAPI) {
+	let modes: [string, string][] = [["exec", ""]];
 	let modeIndex = 0;
 	let removeTerminalInputListener: (() => void) | undefined;
 
-	const getMode = (): Mode => MODES[modeIndex];
-
 	const showMode = (ctx: ExtensionContext): void => {
-		const mode = getMode();
-		ctx.ui.setWidget(WIDGET_KEY, mode === "exec" ? undefined : [mode], { placement: "belowEditor" });
+		const [name, text] = modes[modeIndex];
+		const content = name === "exec" && text === "" ? undefined : [name];
+		ctx.ui.setWidget(WIDGET_KEY, content, { placement: "belowEditor" });
 	};
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
 		removeTerminalInputListener?.();
+		removeTerminalInputListener = undefined;
+
+		const paths = [join(homedir(), CONFIG_DIR_NAME, MODES_FILE)];
+		if (ctx.isProjectTrusted()) paths.push(join(ctx.cwd, CONFIG_DIR_NAME, MODES_FILE));
+		const configured = new Map<string, string>();
+
+		for (const path of paths) {
+			try {
+				const document: unknown = parse(await readFile(path, "utf8"), { mapAsMap: true });
+				if (document === null) continue;
+				if (!(document instanceof Map)) throw new Error("Expected a map of mode names to text.");
+
+				const entries: [string, string][] = [];
+				for (const [name, text] of document) {
+					if (typeof name !== "string" || name.trim() === "" || typeof text !== "string") {
+						throw new Error('Each mode needs a non-empty string name and a string value. Use "" for no appended text.');
+					}
+					entries.push([name, text]);
+				}
+				for (const [name, text] of entries) configured.set(name, text);
+			} catch (error) {
+				if (error instanceof Error && "code" in error && error.code === "ENOENT") continue;
+				const message = `Cannot load modes from ${path}: ${error instanceof Error ? error.message : String(error)}`;
+				if (ctx.hasUI) ctx.ui.notify(message, "error");
+				else console.error(message);
+			}
+		}
+
+		modes = configured.size > 0 ? [...configured] : [["exec", ""]];
+		modeIndex = 0;
 		showMode(ctx);
 
 		if (ctx.mode !== "tui") return;
@@ -35,7 +60,7 @@ export default function (pi: ExtensionAPI) {
 			if (!matchesKey(data, "shift+tab")) return undefined;
 			if (isKeyRepeat(data) || isKeyRelease(data)) return { consume: true };
 
-			modeIndex = (modeIndex + 1) % MODES.length;
+			modeIndex = (modeIndex + 1) % modes.length;
 			showMode(ctx);
 			return { consume: true };
 		});
@@ -48,7 +73,8 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("input", (event) => {
-		const suffix = MODE_SUFFIXES[getMode()];
+		const [, text] = modes[modeIndex];
+		const suffix = text === "" ? "" : `${SEPARATOR}${text}`;
 		if (!suffix || event.source === "extension" || event.text.endsWith(suffix)) {
 			return { action: "continue" };
 		}
