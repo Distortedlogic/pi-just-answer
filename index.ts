@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isKeyRelease, isKeyRepeat, matchesKey } from "@earendil-works/pi-tui";
 
-const MODES = ["exec", "just-answer", "targeted-edits"] as const;
+const MODES = ["exec", "just-answer", "targeted-edits", "create-tasklist"] as const;
 type Mode = (typeof MODES)[number];
 
 const WIDGET_KEY = "just-answer-mode";
@@ -10,6 +10,8 @@ const MODE_SUFFIXES: Record<Mode, string> = {
 	"just-answer": " --- no tool calls, just answer",
 	"targeted-edits":
 		" --- do the targeted edit calls to execute this task. u may use the write tool if u need a new file, or the read tool if an edit fails on needed a new read, or bash to commit at the end. then halt.",
+	"create-tasklist":
+		" --- now group this into work units and give me a technical impl plan for this in the format of a properly ordered task list, n dump the task list into a {generate_full_concept_coverage_minimal_length_prefix}_TASKLIST.md in cwd",
 };
 
 export default function (pi: ExtensionAPI) {
